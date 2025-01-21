@@ -265,7 +265,7 @@ const Index = () => {
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-center">TGAAC > TGAA3DS</h1>
+          <h1 className="text-4xl font-bold text-center">TGAAC {'>'} TGAA3DS</h1>
           <Button
             onClick={() => setLanguage(lang => lang === "en" ? "pt" : "en")}
             variant="outline"
