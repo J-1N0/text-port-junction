@@ -11,11 +11,46 @@ interface FileContent {
   threeDsContent: string;
 }
 
+const translations = {
+  en: {
+    hdVersion: "TGAAC",
+    threeDsVersion: "3DS Version",
+    importSingleHd: "Import Single HD File",
+    importMultipleHd: "Import Multiple HD Files",
+    importSingle3ds: "Import Single 3DS File",
+    importMultiple3ds: "Import Multiple 3DS Files",
+    hdPlaceholder: "HD content will appear here...",
+    threeDsPlaceholder: "3DS content will appear here...",
+    exportSingle: "Export Single Ported Text",
+    exportAll: "Export All as ZIP",
+    importedFiles: "Imported Files",
+    ready: "Ready",
+    missing: "Missing"
+  },
+  pt: {
+    hdVersion: "TGAAC",
+    threeDsVersion: "Versões 3DS",
+    importSingleHd: "Importar um único arquivo",
+    importMultipleHd: "Importar vários arquivos",
+    importSingle3ds: "Importar um único arquivo",
+    importMultiple3ds: "Importar vários arquivos",
+    hdPlaceholder: "Conteúdo do script da versão TGAAC aparecerá aqui...",
+    threeDsPlaceholder: "Conteúdo do script da versão 3DS aparecerá aqui...",
+    exportSingle: "Exportar Script Portado",
+    exportAll: "Exportar Todos como ZIP",
+    importedFiles: "Arquivos Importados",
+    ready: "Pronto",
+    missing: "Faltando"
+  }
+};
+
 const Index = () => {
   const [fileContents, setFileContents] = useState<FileContent[]>([]);
   const [currentHdContent, setCurrentHdContent] = useState("");
   const [currentThreeDsContent, setCurrentThreeDsContent] = useState("");
+  const [language, setLanguage] = useState<"en" | "pt">("en");
   const { toast } = useToast();
+  const t = translations[language];
 
   const handleBatchHdFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -229,11 +264,20 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 text-center">Script Porter</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold text-center">TGAAC > TGAA3DS</h1>
+          <Button
+            onClick={() => setLanguage(lang => lang === "en" ? "pt" : "en")}
+            variant="outline"
+            className="px-4 py-2"
+          >
+            {language === "en" ? "PT" : "EN"}
+          </Button>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           <Card className="p-6 bg-gray-800 border-gray-700">
-            <h2 className="text-xl font-semibold mb-4">HD Version</h2>
+            <h2 className="text-xl font-semibold mb-4">{t.hdVersion}</h2>
             <div className="flex gap-4 mb-4">
               <input
                 type="file"
@@ -246,7 +290,7 @@ const Index = () => {
                 onClick={() => document.getElementById("hdFile")?.click()}
                 className="flex-1"
               >
-                Import Single HD File
+                {t.importSingleHd}
               </Button>
               <input
                 type="file"
@@ -260,19 +304,19 @@ const Index = () => {
                 onClick={() => document.getElementById("hdFiles")?.click()}
                 className="flex-1"
               >
-                Import Multiple HD Files
+                {t.importMultipleHd}
               </Button>
             </div>
             <Textarea
               value={currentHdContent}
               onChange={(e) => setCurrentHdContent(e.target.value)}
               className="h-[500px] font-mono bg-gray-900 text-gray-100"
-              placeholder="HD content will appear here..."
+              placeholder={t.hdPlaceholder}
             />
           </Card>
 
           <Card className="p-6 bg-gray-800 border-gray-700">
-            <h2 className="text-xl font-semibold mb-4">3DS Version</h2>
+            <h2 className="text-xl font-semibold mb-4">{t.threeDsVersion}</h2>
             <div className="flex gap-4 mb-4">
               <input
                 type="file"
@@ -285,7 +329,7 @@ const Index = () => {
                 onClick={() => document.getElementById("threeDsFile")?.click()}
                 className="flex-1"
               >
-                Import Single 3DS File
+                {t.importSingle3ds}
               </Button>
               <input
                 type="file"
@@ -299,40 +343,40 @@ const Index = () => {
                 onClick={() => document.getElementById("threeDsFiles")?.click()}
                 className="flex-1"
               >
-                Import Multiple 3DS Files
+                {t.importMultiple3ds}
               </Button>
             </div>
             <Textarea
               value={currentThreeDsContent}
               onChange={(e) => setCurrentThreeDsContent(e.target.value)}
               className="h-[500px] font-mono bg-gray-900 text-gray-100"
-              placeholder="3DS content will appear here..."
+              placeholder={t.threeDsPlaceholder}
             />
           </Card>
         </div>
 
         <div className="text-center space-x-4">
           <Button onClick={handleSingleExport} className="px-8 py-4 text-lg">
-            Export Single Ported Text
+            {t.exportSingle}
           </Button>
           <Button onClick={handleBatchExport} className="px-8 py-4 text-lg">
-            Export All as ZIP
+            {t.exportAll}
           </Button>
         </div>
 
         {fileContents.length > 0 && (
           <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4">Imported Files</h2>
+            <h2 className="text-xl font-semibold mb-4">{t.importedFiles}</h2>
             <div className="space-y-2">
               {fileContents.map((file, index) => (
                 <div key={index} className="p-4 bg-gray-800 rounded-lg flex justify-between items-center">
                   <span>{file.name}</span>
                   <div className="space-x-2">
                     <span className={`px-2 py-1 rounded ${file.hdContent ? 'bg-green-600' : 'bg-red-600'}`}>
-                      HD: {file.hdContent ? 'Ready' : 'Missing'}
+                      HD: {file.hdContent ? t.ready : t.missing}
                     </span>
                     <span className={`px-2 py-1 rounded ${file.threeDsContent ? 'bg-green-600' : 'bg-red-600'}`}>
-                      3DS: {file.threeDsContent ? 'Ready' : 'Missing'}
+                      3DS: {file.threeDsContent ? t.ready : t.missing}
                     </span>
                   </div>
                 </div>
