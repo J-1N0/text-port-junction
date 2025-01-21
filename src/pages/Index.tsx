@@ -48,9 +48,9 @@ const Index = () => {
       const hdSections = hdContent.split(/\[.*?\]/g);
       const threeDsSections = threeDsContent.split(/\[.*?\]/g);
 
-      // Get the section headers
-      const hdHeaders = hdContent.match(/\[.*?\]/g) || [];
-      const threeDsHeaders = threeDsContent.match(/\[.*?\]/g) || [];
+      // Get the section headers with explicit type
+      const hdHeaders: string[] = hdContent.match(/\[.*?\]/g) || [];
+      const threeDsHeaders: string[] = threeDsContent.match(/\[.*?\]/g) || [];
 
       // Create the new content
       let newContent = "";
@@ -60,6 +60,7 @@ const Index = () => {
         currentHeader = threeDsHeaders[i];
         newContent += currentHeader;
 
+        // Find matching HD section
         const hdIndex = hdHeaders.indexOf(currentHeader.replace("]", ",0]"));
         if (hdIndex !== -1 && hdSections[hdIndex + 1]) {
           // Get content up to <FIM> or end of section
