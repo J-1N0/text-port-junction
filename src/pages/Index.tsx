@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Card } from "@/components/ui/card";
 import JSZip from "jszip";
+import { ScriptEditor } from "@/components/ScriptEditor";
+import { ImportedFilesList } from "@/components/ImportedFilesList";
+import { ExportButtons } from "@/components/ExportButtons";
 
 interface FileContent {
   name: string;
@@ -51,6 +52,52 @@ const Index = () => {
   const [language, setLanguage] = useState<"en" | "pt">("en");
   const { toast } = useToast();
   const t = translations[language];
+
+  const portText = (hdContent: string, threeDsContent: string) => {
+    if (!hdContent || !threeDsContent) {
+      return "";
+    }
+
+    try {
+      const hdSections = hdContent.split(/\[.*?\]/g);
+      const threeDsSections = threeDsContent.split(/\[.*?\]/g);
+      const hdHeaders: string[] = hdContent.match(/\[.*?\]/g) || [];
+      const threeDsHeaders: string[] = threeDsContent.match(/\[.*?\]/g) || [];
+      let newContent = threeDsSections[0] || "";
+
+      for (let i = 0; i < threeDsHeaders.length; i++) {
+        const currentHeader = threeDsHeaders[i];
+        newContent += currentHeader;
+
+        if (currentHeader.includes("L_META") || 
+            currentHeader.includes("$INDICES") || 
+            currentHeader.includes("$VERSION") || 
+            currentHeader.includes("$HASHES") || 
+            currentHeader.includes("$EXTRA")) {
+          newContent += threeDsSections[i + 1];
+          continue;
+        }
+
+        const hdIndex = hdHeaders.indexOf(currentHeader.replace("]", ",0]"));
+        if (hdIndex !== -1 && hdSections[hdIndex + 1]) {
+          const sectionContent = hdSections[hdIndex + 1];
+          const endIndex = sectionContent.indexOf("<FIM>");
+          const contentToAdd = endIndex !== -1 
+            ? sectionContent.substring(0, endIndex) 
+            : sectionContent;
+            
+          newContent += contentToAdd + "{end}\n\n";
+        } else {
+          newContent += threeDsSections[i + 1];
+        }
+      }
+
+      return newContent;
+    } catch (error) {
+      console.error("Error porting text:", error);
+      return "";
+    }
+  };
 
   const handleBatchHdFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -121,63 +168,6 @@ const Index = () => {
         setCurrentThreeDsContent(content);
       };
       reader.readAsText(file);
-    }
-  };
-
-  const portText = (hdContent: string, threeDsContent: string) => {
-    if (!hdContent || !threeDsContent) {
-      return "";
-    }
-
-    try {
-      // Split content into sections while preserving the original content
-      const hdSections = hdContent.split(/\[.*?\]/g);
-      const threeDsSections = threeDsContent.split(/\[.*?\]/g);
-
-      // Get the section headers with explicit type
-      const hdHeaders: string[] = hdContent.match(/\[.*?\]/g) || [];
-      const threeDsHeaders: string[] = threeDsContent.match(/\[.*?\]/g) || [];
-
-      // Create the new content starting with any content before the first section
-      let newContent = threeDsSections[0] || "";
-
-      // Process each section from the 3DS file
-      for (let i = 0; i < threeDsHeaders.length; i++) {
-        const currentHeader = threeDsHeaders[i];
-        newContent += currentHeader;
-
-        // Special handling for metadata sections
-        if (currentHeader.includes("L_META") || 
-            currentHeader.includes("$INDICES") || 
-            currentHeader.includes("$VERSION") || 
-            currentHeader.includes("$HASHES") || 
-            currentHeader.includes("$EXTRA")) {
-          // Keep the 3DS content for these sections
-          newContent += threeDsSections[i + 1];
-          continue;
-        }
-
-        // Find matching HD section
-        const hdIndex = hdHeaders.indexOf(currentHeader.replace("]", ",0]"));
-        if (hdIndex !== -1 && hdSections[hdIndex + 1]) {
-          // Get content up to <FIM> or end of section
-          const sectionContent = hdSections[hdIndex + 1];
-          const endIndex = sectionContent.indexOf("<FIM>");
-          const contentToAdd = endIndex !== -1 
-            ? sectionContent.substring(0, endIndex) 
-            : sectionContent;
-            
-          newContent += contentToAdd + "{end}\n\n";
-        } else {
-          // If no matching HD section found, keep the 3DS content
-          newContent += threeDsSections[i + 1];
-        }
-      }
-
-      return newContent;
-    } catch (error) {
-      console.error("Error porting text:", error);
-      return "";
     }
   };
 
@@ -276,114 +266,51 @@ const Index = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          <Card className="p-6 bg-gray-800 border-gray-700">
-            <h2 className="text-xl font-semibold mb-4">{t.hdVersion}</h2>
-            <div className="flex gap-4 mb-4">
-              <input
-                type="file"
-                onChange={handleSingleHdFileUpload}
-                accept=".txt"
-                className="hidden"
-                id="hdFile"
-              />
-              <Button
-                onClick={() => document.getElementById("hdFile")?.click()}
-                className="flex-1"
-              >
-                {t.importSingleHd}
-              </Button>
-              <input
-                type="file"
-                onChange={handleBatchHdFileUpload}
-                accept=".txt"
-                multiple
-                className="hidden"
-                id="hdFiles"
-              />
-              <Button
-                onClick={() => document.getElementById("hdFiles")?.click()}
-                className="flex-1"
-              >
-                {t.importMultipleHd}
-              </Button>
-            </div>
-            <Textarea
-              value={currentHdContent}
-              onChange={(e) => setCurrentHdContent(e.target.value)}
-              className="h-[500px] font-mono bg-gray-900 text-gray-100"
-              placeholder={t.hdPlaceholder}
-            />
-          </Card>
-
-          <Card className="p-6 bg-gray-800 border-gray-700">
-            <h2 className="text-xl font-semibold mb-4">{t.threeDsVersion}</h2>
-            <div className="flex gap-4 mb-4">
-              <input
-                type="file"
-                onChange={handleSingleThreeDsFileUpload}
-                accept=".txt"
-                className="hidden"
-                id="threeDsFile"
-              />
-              <Button
-                onClick={() => document.getElementById("threeDsFile")?.click()}
-                className="flex-1"
-              >
-                {t.importSingle3ds}
-              </Button>
-              <input
-                type="file"
-                onChange={handleBatchThreeDsFileUpload}
-                accept=".txt"
-                multiple
-                className="hidden"
-                id="threeDsFiles"
-              />
-              <Button
-                onClick={() => document.getElementById("threeDsFiles")?.click()}
-                className="flex-1"
-              >
-                {t.importMultiple3ds}
-              </Button>
-            </div>
-            <Textarea
-              value={currentThreeDsContent}
-              onChange={(e) => setCurrentThreeDsContent(e.target.value)}
-              className="h-[500px] font-mono bg-gray-900 text-gray-100"
-              placeholder={t.threeDsPlaceholder}
-            />
-          </Card>
+          <ScriptEditor
+            title={t.hdVersion}
+            content={currentHdContent}
+            onContentChange={setCurrentHdContent}
+            onSingleFileUpload={handleSingleHdFileUpload}
+            onMultipleFileUpload={handleBatchHdFileUpload}
+            singleUploadText={t.importSingleHd}
+            multipleUploadText={t.importMultipleHd}
+            placeholder={t.hdPlaceholder}
+          />
+          <ScriptEditor
+            title={t.threeDsVersion}
+            content={currentThreeDsContent}
+            onContentChange={setCurrentThreeDsContent}
+            onSingleFileUpload={handleSingleThreeDsFileUpload}
+            onMultipleFileUpload={handleBatchThreeDsFileUpload}
+            singleUploadText={t.importSingle3ds}
+            multipleUploadText={t.importMultiple3ds}
+            placeholder={t.threeDsPlaceholder}
+          />
         </div>
 
-        <div className="text-center space-x-4">
-          <Button onClick={handleSingleExport} className="px-8 py-4 text-lg">
-            {t.exportSingle}
-          </Button>
-          <Button onClick={handleBatchExport} className="px-8 py-4 text-lg">
-            {t.exportAll}
-          </Button>
-        </div>
+        <ExportButtons
+          onSingleExport={handleSingleExport}
+          onBatchExport={handleBatchExport}
+          translations={{
+            exportSingle: t.exportSingle,
+            exportAll: t.exportAll,
+          }}
+        />
 
-        {fileContents.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4">{t.importedFiles}</h2>
-            <div className="space-y-2">
-              {fileContents.map((file, index) => (
-                <div key={index} className="p-4 bg-gray-800 rounded-lg flex justify-between items-center">
-                  <span>{file.name}</span>
-                  <div className="space-x-2">
-                    <span className={`px-2 py-1 rounded ${file.hdContent ? 'bg-green-600' : 'bg-red-600'}`}>
-                      HD: {file.hdContent ? t.ready : t.missing}
-                    </span>
-                    <span className={`px-2 py-1 rounded ${file.threeDsContent ? 'bg-green-600' : 'bg-red-600'}`}>
-                      3DS: {file.threeDsContent ? t.ready : t.missing}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <ImportedFilesList
+          files={fileContents}
+          translations={{
+            importedFiles: t.importedFiles,
+            ready: t.ready,
+            missing: t.missing,
+          }}
+        />
+
+        <img 
+          src="/lovable-uploads/2652aed2-b47c-4555-9d53-a1001b289bda.png" 
+          alt="JS Logo" 
+          className="fixed bottom-4 right-4 w-16 h-16"
+        />
       </div>
     </div>
   );
