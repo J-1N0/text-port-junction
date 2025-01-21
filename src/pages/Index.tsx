@@ -44,7 +44,7 @@ const Index = () => {
     }
 
     try {
-      // Split content into sections
+      // Split content into sections while preserving the original content
       const hdSections = hdContent.split(/\[.*?\]/g);
       const threeDsSections = threeDsContent.split(/\[.*?\]/g);
 
@@ -52,13 +52,24 @@ const Index = () => {
       const hdHeaders: string[] = hdContent.match(/\[.*?\]/g) || [];
       const threeDsHeaders: string[] = threeDsContent.match(/\[.*?\]/g) || [];
 
-      // Create the new content
-      let newContent = "";
-      let currentHeader = "";
+      // Create the new content starting with any content before the first section
+      let newContent = threeDsSections[0] || "";
 
+      // Process each section from the 3DS file
       for (let i = 0; i < threeDsHeaders.length; i++) {
-        currentHeader = threeDsHeaders[i];
+        const currentHeader = threeDsHeaders[i];
         newContent += currentHeader;
+
+        // Special handling for metadata sections
+        if (currentHeader.includes("L_META") || 
+            currentHeader.includes("$INDICES") || 
+            currentHeader.includes("$VERSION") || 
+            currentHeader.includes("$HASHES") || 
+            currentHeader.includes("$EXTRA")) {
+          // Keep the 3DS content for these sections
+          newContent += threeDsSections[i + 1];
+          continue;
+        }
 
         // Find matching HD section
         const hdIndex = hdHeaders.indexOf(currentHeader.replace("]", ",0]"));
@@ -72,6 +83,7 @@ const Index = () => {
             
           newContent += contentToAdd + "{end}\n\n";
         } else {
+          // If no matching HD section found, keep the 3DS content
           newContent += threeDsSections[i + 1];
         }
       }
