@@ -3,44 +3,95 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
+import JSZip from "jszip";
+
+interface FileContent {
+  name: string;
+  hdContent: string;
+  threeDsContent: string;
+}
 
 const Index = () => {
-  const [hdContent, setHdContent] = useState("");
-  const [threeDsContent, setThreeDsContent] = useState("");
+  const [fileContents, setFileContents] = useState<FileContent[]>([]);
+  const [currentHdContent, setCurrentHdContent] = useState("");
+  const [currentThreeDsContent, setCurrentThreeDsContent] = useState("");
   const { toast } = useToast();
 
-  const handleHdFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBatchHdFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        setFileContents(prev => {
+          const existingFile = prev.find(f => f.name === file.name.replace(".txt", ""));
+          if (existingFile) {
+            return prev.map(f => 
+              f.name === existingFile.name 
+                ? { ...f, hdContent: content }
+                : f
+            );
+          }
+          return [...prev, { name: file.name.replace(".txt", ""), hdContent: content, threeDsContent: "" }];
+        });
+      };
+      reader.readAsText(file);
+    });
+  };
+
+  const handleBatchThreeDsFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        setFileContents(prev => {
+          const existingFile = prev.find(f => f.name === file.name.replace(".txt", ""));
+          if (existingFile) {
+            return prev.map(f => 
+              f.name === existingFile.name 
+                ? { ...f, threeDsContent: content }
+                : f
+            );
+          }
+          return [...prev, { name: file.name.replace(".txt", ""), hdContent: "", threeDsContent: content }];
+        });
+      };
+      reader.readAsText(file);
+    });
+  };
+
+  const handleSingleHdFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target?.result as string;
-        setHdContent(content);
+        setCurrentHdContent(content);
       };
       reader.readAsText(file);
     }
   };
 
-  const handleThreeDsFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSingleThreeDsFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target?.result as string;
-        setThreeDsContent(content);
+        setCurrentThreeDsContent(content);
       };
       reader.readAsText(file);
     }
   };
 
-  const portText = () => {
+  const portText = (hdContent: string, threeDsContent: string) => {
     if (!hdContent || !threeDsContent) {
-      toast({
-        title: "Error",
-        description: "Please import both files first",
-        variant: "destructive",
-      });
-      return;
+      return "";
     }
 
     try {
@@ -88,7 +139,25 @@ const Index = () => {
         }
       }
 
-      // Create and trigger download
+      return newContent;
+    } catch (error) {
+      console.error("Error porting text:", error);
+      return "";
+    }
+  };
+
+  const handleSingleExport = () => {
+    if (!currentHdContent || !currentThreeDsContent) {
+      toast({
+        title: "Error",
+        description: "Please import both files first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const newContent = portText(currentHdContent, currentThreeDsContent);
       const blob = new Blob([newContent], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -112,6 +181,51 @@ const Index = () => {
     }
   };
 
+  const handleBatchExport = async () => {
+    if (fileContents.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please import files first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const zip = new JSZip();
+
+      fileContents.forEach(file => {
+        if (file.hdContent && file.threeDsContent) {
+          const portedContent = portText(file.hdContent, file.threeDsContent);
+          if (portedContent) {
+            zip.file(`${file.name}_ported.txt`, portedContent);
+          }
+        }
+      });
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ported_scripts.zip";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Success",
+        description: "All files have been ported and downloaded as ZIP",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create ZIP file. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-7xl mx-auto">
@@ -120,24 +234,38 @@ const Index = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           <Card className="p-6 bg-gray-800 border-gray-700">
             <h2 className="text-xl font-semibold mb-4">HD Version</h2>
-            <div className="mb-4">
+            <div className="flex gap-4 mb-4">
               <input
                 type="file"
-                onChange={handleHdFileUpload}
+                onChange={handleSingleHdFileUpload}
                 accept=".txt"
                 className="hidden"
                 id="hdFile"
               />
               <Button
                 onClick={() => document.getElementById("hdFile")?.click()}
-                className="w-full"
+                className="flex-1"
               >
-                Import HD File
+                Import Single HD File
+              </Button>
+              <input
+                type="file"
+                onChange={handleBatchHdFileUpload}
+                accept=".txt"
+                multiple
+                className="hidden"
+                id="hdFiles"
+              />
+              <Button
+                onClick={() => document.getElementById("hdFiles")?.click()}
+                className="flex-1"
+              >
+                Import Multiple HD Files
               </Button>
             </div>
             <Textarea
-              value={hdContent}
-              onChange={(e) => setHdContent(e.target.value)}
+              value={currentHdContent}
+              onChange={(e) => setCurrentHdContent(e.target.value)}
               className="h-[500px] font-mono bg-gray-900 text-gray-100"
               placeholder="HD content will appear here..."
             />
@@ -145,35 +273,73 @@ const Index = () => {
 
           <Card className="p-6 bg-gray-800 border-gray-700">
             <h2 className="text-xl font-semibold mb-4">3DS Version</h2>
-            <div className="mb-4">
+            <div className="flex gap-4 mb-4">
               <input
                 type="file"
-                onChange={handleThreeDsFileUpload}
+                onChange={handleSingleThreeDsFileUpload}
                 accept=".txt"
                 className="hidden"
                 id="threeDsFile"
               />
               <Button
                 onClick={() => document.getElementById("threeDsFile")?.click()}
-                className="w-full"
+                className="flex-1"
               >
-                Import 3DS File
+                Import Single 3DS File
+              </Button>
+              <input
+                type="file"
+                onChange={handleBatchThreeDsFileUpload}
+                accept=".txt"
+                multiple
+                className="hidden"
+                id="threeDsFiles"
+              />
+              <Button
+                onClick={() => document.getElementById("threeDsFiles")?.click()}
+                className="flex-1"
+              >
+                Import Multiple 3DS Files
               </Button>
             </div>
             <Textarea
-              value={threeDsContent}
-              onChange={(e) => setThreeDsContent(e.target.value)}
+              value={currentThreeDsContent}
+              onChange={(e) => setCurrentThreeDsContent(e.target.value)}
               className="h-[500px] font-mono bg-gray-900 text-gray-100"
               placeholder="3DS content will appear here..."
             />
           </Card>
         </div>
 
-        <div className="text-center">
-          <Button onClick={portText} className="px-8 py-4 text-lg">
-            Export Ported Text
+        <div className="text-center space-x-4">
+          <Button onClick={handleSingleExport} className="px-8 py-4 text-lg">
+            Export Single Ported Text
+          </Button>
+          <Button onClick={handleBatchExport} className="px-8 py-4 text-lg">
+            Export All as ZIP
           </Button>
         </div>
+
+        {fileContents.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4">Imported Files</h2>
+            <div className="space-y-2">
+              {fileContents.map((file, index) => (
+                <div key={index} className="p-4 bg-gray-800 rounded-lg flex justify-between items-center">
+                  <span>{file.name}</span>
+                  <div className="space-x-2">
+                    <span className={`px-2 py-1 rounded ${file.hdContent ? 'bg-green-600' : 'bg-red-600'}`}>
+                      HD: {file.hdContent ? 'Ready' : 'Missing'}
+                    </span>
+                    <span className={`px-2 py-1 rounded ${file.threeDsContent ? 'bg-green-600' : 'bg-red-600'}`}>
+                      3DS: {file.threeDsContent ? 'Ready' : 'Missing'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
